@@ -1,10 +1,5 @@
 import { prisma } from '../config/db.js';
-
-const PLAN_LIMITS = {
-  basic: { rowsPerMonth: 50, aiCalls: 20, sites: 1 },
-  pro: { rowsPerMonth: 500, aiCalls: 200, sites: 5 },
-  advance: { rowsPerMonth: -1, aiCalls: -1, sites: -1 },
-};
+import { PLAN_LIMITS } from '../config/plans.js';
 
 export async function getUserPlanAndUsage(userId) {
   const subscription = await prisma.subscription.findUnique({

@@ -1,16 +1,5 @@
 import { prisma } from '../config/db.js';
-
-const PLAN_PRICES = {
-  basic: 0,
-  pro: 99,
-  advance: 199,
-};
-
-const PLAN_NAMES = {
-  basic: 'Basic',
-  pro: 'Pro',
-  advance: 'Advance',
-};
+import { PLAN_LIMITS, PLAN_PRICES, PLAN_NAMES } from '../config/plans.js';
 
 export const getBillingInfo = async (req, res) => {
   try {
@@ -30,14 +19,8 @@ export const getBillingInfo = async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    const planLimits = {
-      basic: { sites: 1, rowsPerMonth: 50, aiCalls: 20 },
-      pro: { sites: 5, rowsPerMonth: 500, aiCalls: 200 },
-      advance: { sites: -1, rowsPerMonth: -1, aiCalls: -1 },
-    };
-
     const currentPlan = subscription?.plan || 'basic';
-    const limits = planLimits[currentPlan];
+    const limits = PLAN_LIMITS[currentPlan];
 
     res.json({
       subscription: subscription || { plan: 'basic', status: 'active' },
@@ -306,6 +289,33 @@ export const updateUserPlan = async (req, res) => {
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    const existingUsage = await prisma.usage.findUnique({
+      where: {
+        userId_month: { userId: id, month: currentMonth },
+      },
+    });
+
+    if (existingUsage) {
+      await prisma.usage.update({
+        where: { id: existingUsage.id },
+        data: {
+          rowsUpdated: 0,
+          aiCalls: 0,
+        },
+      });
+    } else {
+      await prisma.usage.create({
+        data: {
+          userId: id,
+          month: currentMonth,
+          rowsUpdated: 0,
+          aiCalls: 0,
+        },
+      });
+    }
 
     res.json({ message: `User plan updated to ${PLAN_NAMES[plan]}` });
   } catch (err) {

@@ -97,8 +97,9 @@ export const updatePageAcf = async (req, res) => {
       }
     });
   } catch (err) {
+    const reqPageId = req.body?.pageId;
     if (err.response?.status === 404) {
-      return res.status(404).json({ success: false, error: `Page ${pageId} not found` });
+      return res.status(404).json({ success: false, error: `Page ${reqPageId || ''} not found` });
     }
     res.status(500).json({ success: false, error: err.message });
   }
@@ -179,6 +180,123 @@ export const getStats = async (req, res) => {
       posts: parseInt(postsRes.headers['x-wp-total'] || '0', 10),
       media: parseInt(mediaRes.headers['x-wp-total'] || '0', 10),
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const createPost = async (req, res) => {
+  try {
+    const { siteId, title, content, slug, status, categories, tags, featuredMediaId, excerpt, password } = req.body;
+    const { wpUrl, wpUsername, wpPassword } = await getCredentials(req.user.id, siteId);
+
+    const postData = {
+      title,
+      content,
+      status: status || 'draft',
+    };
+
+    if (slug) postData.slug = slug;
+    if (categories?.length > 0) postData.categories = categories;
+    if (tags?.length > 0) postData.tags = tags;
+    if (featuredMediaId) postData.featured_media = featuredMediaId;
+    if (excerpt) postData.excerpt = excerpt;
+    if (password) postData.password = password;
+
+    const response = await axios.post(
+      `${wpUrl}/wp-json/wp/v2/posts`,
+      postData,
+      {
+        headers: { Authorization: getAuthHeader(wpUsername, wpPassword) },
+        timeout: 15000,
+      }
+    );
+
+    res.json({ success: true, post: response.data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const createPage = async (req, res) => {
+  try {
+    const { siteId, title, content, slug, status, parent, featuredMediaId, excerpt, password, menuOrder } = req.body;
+    const { wpUrl, wpUsername, wpPassword } = await getCredentials(req.user.id, siteId);
+
+    const pageData = {
+      title,
+      content,
+      status: status || 'draft',
+    };
+
+    if (slug) pageData.slug = slug;
+    if (parent) pageData.parent = parent;
+    if (featuredMediaId) pageData.featured_media = featuredMediaId;
+    if (excerpt) pageData.excerpt = excerpt;
+    if (password) pageData.password = password;
+    if (menuOrder) pageData.menu_order = menuOrder;
+
+    const response = await axios.post(
+      `${wpUrl}/wp-json/wp/v2/pages`,
+      pageData,
+      {
+        headers: { Authorization: getAuthHeader(wpUsername, wpPassword) },
+        timeout: 15000,
+      }
+    );
+
+    res.json({ success: true, page: response.data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const getCategories = async (req, res) => {
+  try {
+    const { siteId } = req.query;
+    const { wpUrl, wpUsername, wpPassword } = await getCredentials(req.user.id, siteId);
+
+    const response = await axios.get(`${wpUrl}/wp-json/wp/v2/categories`, {
+      headers: { Authorization: getAuthHeader(wpUsername, wpPassword) },
+      params: { per_page: 100 },
+      timeout: 10000,
+    });
+
+    res.json({ success: true, categories: response.data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const getTags = async (req, res) => {
+  try {
+    const { siteId } = req.query;
+    const { wpUrl, wpUsername, wpPassword } = await getCredentials(req.user.id, siteId);
+
+    const response = await axios.get(`${wpUrl}/wp-json/wp/v2/tags`, {
+      headers: { Authorization: getAuthHeader(wpUsername, wpPassword) },
+      params: { per_page: 100 },
+      timeout: 10000,
+    });
+
+    res.json({ success: true, tags: response.data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const getMedia = async (req, res) => {
+  try {
+    const { siteId, page = 1, perPage = 20 } = req.query;
+    const { wpUrl, wpUsername, wpPassword } = await getCredentials(req.user.id, siteId);
+
+    const response = await axios.get(`${wpUrl}/wp-json/wp/v2/media`, {
+      headers: { Authorization: getAuthHeader(wpUsername, wpPassword) },
+      params: { page, per_page: perPage },
+      timeout: 10000,
+    });
+
+    res.json({ success: true, media: response.data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
